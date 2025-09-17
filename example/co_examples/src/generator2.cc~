@@ -1,0 +1,103 @@
+/***
+***/
+
+#include <coroutine>
+#include <exception>
+#include <iostream>
+
+using namespace std;
+
+struct Generator {
+  class ExhaustedException : exception {};
+
+  struct promise_type {
+    Generator get_return_object() {
+      return Generator{coroutine_handle<promise_type>::from_promise(*this)};
+    }
+
+    suspend_never initial_suspend() {
+      return {};
+    }
+
+    suspend_always final_suspend() noexcept {
+      cout << "final_suspend\n";
+      return {};
+    }
+
+    //suspend_never await_transform(int value) {    // suspend_never 执行完之后, 不会回到 resume 处执行。因为执行 Generator 的代码时, 协程是 suspend 状态的。返回 suspend_never 则协程不会继续 suspend, 而是继续执行。
+    suspend_always await_transform(int value) {     // suspend_always 执行完之后, 会回到 resume 处执行。
+      cout << "await_transform\n";
+      this->value = value;
+      is_ready = true;
+      return {};
+    }
+
+    void unhandled_exception() {
+    }
+    void return_void() {
+    }
+
+    int value;
+    bool is_ready;
+  };
+
+  Generator(coroutine_handle<promise_type> handle ) : handle(handle) {
+  }
+  ~Generator() {
+    handle.destroy();
+  }
+
+  bool has_next() {
+    if (handle.done()) {
+      cout << "handle_done\n";
+      return false;
+    }
+
+    if (!handle.promise().is_ready) {
+      cout << "resume start\n";
+      handle.resume();      // await_transform 返回 suspend_always 或协程结束时, 会回到此处执行。
+      cout << "resume end\n";
+    }
+
+    if (handle.done()) {
+      cout << "handle_done\n";
+      return false;
+    } else {
+      cout << "handle_not_done\n";
+      return true;
+    }
+  }
+
+  int next() {
+    if (has_next()) {
+      handle.promise().is_ready = false;
+      return handle.promise().value;
+    }
+
+    throw ExhaustedException();
+  }
+
+  coroutine_handle<promise_type> handle;
+};
+
+Generator sequence() {
+  cout << "sequence start\n";
+  int i = 0;
+  while (i < 5) {
+    cout << "await start\n";
+    co_await i++;
+    cout << "await end\n";
+  }
+  cout << "sequence end\n";
+}
+
+int main() {
+  auto g = sequence();
+  for (int i = 0; i < 15; i++) {
+    if (g.has_next()) {
+      cout << g.next() << endl;
+    }
+  }
+
+  return 0;
+}

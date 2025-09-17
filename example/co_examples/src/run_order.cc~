@@ -1,0 +1,92 @@
+/***
+get_return_object     // 进入协程前
+initial_suspend       // 进入协程前
+1
+await_ready          // co_await
+await_suspend
+await_resume
+10
+2
+3
+4
+return_void         // 协程结束前
+final_suspend       // 协程结束前
+***/
+
+#include <iostream>
+#include <future>
+#include <coroutine>
+
+using namespace std;
+
+struct Result {
+  struct promise_type {
+    Result get_return_object() {
+      cout << "get_return_object\n";
+      return {};
+    }
+
+    suspend_always initial_suspend() {
+      cout << "initial_suspend\n";
+      return {};
+    }
+    suspend_never final_suspend() noexcept {
+      cout << "final_suspend\n";
+      return {};
+    }
+
+    void return_void() {
+      cout << "return_void\n";
+    }
+
+    void unhandled_exception() {
+      cout << "unhandled_exception\n";
+    }
+  };
+};
+
+struct Awaiter {
+  bool await_ready() {
+    cout << "await_ready\n";
+    return false;
+  }
+  auto await_suspend(coroutine_handle<> crt_handle) {
+    cout << "await_suspend\n";
+    //cout << "resume after\n";
+    //auto _ = async([=](){
+    //    this_thread::sleep_for(10s);
+    //    crt_handle.resume();
+    //    });
+    //thread([crt_handle]() {
+    //    this_thread::sleep_for(10s);
+    //    crt_handle.resume();
+    //    }).detach();
+    cout << "return\n";
+    return true;
+  }
+  int await_resume() {
+    cout << "await_resume\n";
+    return value;
+  }
+
+  int value;
+};
+
+Result test_coroutine() {
+  cout << "1\n";
+  cout << co_await Awaiter{.value = 10} << endl;
+  cout << "2\n";
+  //co_await suspend_always{};
+  //cout << co_await Awaiter{.value = 20} << endl;
+  cout << "3\n";
+  //co_await suspend_always();
+  cout << "4\n";
+
+  co_return;
+}
+
+int main() {
+  test_coroutine();
+  cout << "main end\n";
+  return 0;
+}
