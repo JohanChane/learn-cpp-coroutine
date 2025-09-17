@@ -154,7 +154,7 @@ Task<int> coroutine_func() {
 ## 完整的协程执行流程：
 
 1. **协程创建阶段**：
-   - 分配协程帧内存
+   - 分配协程帧内存 (协程帧在堆上分配)
    - 构造promise对象（调用构造函数）
    - 调用`get_return_object()`创建返回给调用者的Task
    - 调用`initial_suspend()`决定是否立即挂起
